@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  Single-page UI for The Counting Game.
+
+  Contains minimal CSS and JavaScript. The page shows the current count,
+  a button labeled "Count Up", and instructions. When the button is clicked
+  the client sends a POST request to /count to increment the server-side
+  in-memory counter and updates the displayed number.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Counting Game</title>
+
+  <style>
+    /* Minimal, clean styling */
+    :root{ --bg:#f7f9fc; --card:#ffffff; --accent:#2b7cff; --danger:#d9534f }
+    body{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); margin:0; padding:2rem; display:flex; align-items:center; justify-content:center; height:100vh }
+    .card{ background:var(--card); padding:2rem 2.5rem; border-radius:12px; box-shadow:0 6px 18px rgba(30,41,59,0.08); text-align:center; width:360px }
+    h1{ margin:0 0 0.5rem; font-size:1.4rem }
+    p.instructions{ color:#475569; margin:0 0 1rem }
+    .count{ font-size:3.2rem; font-weight:700; margin:1rem 0 }
+    button{ background:var(--accent); color:white; border:none; padding:0.6rem 1.1rem; font-size:1rem; border-radius:8px; cursor:pointer }
+    button:active{ transform:translateY(1px) }
+    .hint{ font-size:0.85rem; color:#64748b; margin-top:0.6rem }
+    /* special appearance when count reaches 13 */
+    .unlucky{ background: linear-gradient(135deg, rgba(217,83,79,0.08), rgba(217,83,79,0.02)); border:1px solid rgba(217,83,79,0.12) }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h1>The Counting Game</h1>
+    <p class="instructions">Click the button to count up. But beware what happens at 13...</p>
+
+    <!-- Display the current count. The server injects the starting value. -->
+    <div id="count" class="count">{{ count }}</div>
+
+    <!-- The button that triggers counting. -->
+    <button id="btn">Count Up</button>
+
+    <div class="hint">Tip: The counter is stored in the server's memory for now.</div>
+  </div>
+
+  <script>
+    // JavaScript to call the POST /count endpoint and update the displayed value.
+    // This keeps the UI responsive without reloading the page.
+    const btn = document.getElementById('btn');
+    const countEl = document.getElementById('count');
+    const card = document.getElementById('card');
+
+    btn.addEventListener('click', async () => {
+      try {
+        // Send a POST request to the server to increment the counter.
+        const res = await fetch('/count', { method: 'POST' });
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+
+        // Update the displayed count with the new value from the server.
+        countEl.textContent = data.count;
+
+        // A little visual effect for 13 to match the instructions.
+        if (data.count === 13) {
+          // add a CSS class that lightly changes the card appearance
+          card.classList.add('unlucky');
+          // also show a friendly alert so beginners notice it
+          setTimeout(() => alert('Uh oh — 13! Be careful...'), 50);
+        } else {
+          // remove the effect if we move away from 13
+          card.classList.remove('unlucky');
+        }
+      } catch (err) {
+        // For beginners: log the error to the console if the request fails.
+        console.error('Error incrementing count:', err);
+        alert('Could not increment the counter. See console for details.');
+      }
+    });
+  </script>
+</body>
+</html>
