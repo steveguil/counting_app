@@ -54,6 +54,19 @@ def increment_count():
     return jsonify({'count': new_value})
 
 
+@app.route('/reset', methods=['POST'])
+def reset_count():
+    """Reset the in-memory counter to zero and return the new value.
+
+    This endpoint is called when the user dismisses the '13' message in the
+    UI. We also use the lock here to prevent races with concurrent requests.
+    """
+    with counter_lock:
+        counter['value'] = 0
+        new_value = counter['value']
+    return jsonify({'count': new_value})
+
+
 if __name__ == '__main__':
     # Start the Flask development server on localhost:5000 so the user can
     # open http://localhost:5000 in their browser.

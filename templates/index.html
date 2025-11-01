@@ -11,70 +11,147 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Counting Game</title>
+  <!doctype html>
+  <!--
+    Single-page UI for The Counting Game.
 
-  <style>
-    /* Minimal, clean styling */
-    :root{ --bg:#f7f9fc; --card:#ffffff; --accent:#2b7cff; --danger:#d9534f }
-    body{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); margin:0; padding:2rem; display:flex; align-items:center; justify-content:center; height:100vh }
-    .card{ background:var(--card); padding:2rem 2.5rem; border-radius:12px; box-shadow:0 6px 18px rgba(30,41,59,0.08); text-align:center; width:360px }
-    h1{ margin:0 0 0.5rem; font-size:1.4rem }
-    p.instructions{ color:#475569; margin:0 0 1rem }
-    .count{ font-size:3.2rem; font-weight:700; margin:1rem 0 }
-    button{ background:var(--accent); color:white; border:none; padding:0.6rem 1.1rem; font-size:1rem; border-radius:8px; cursor:pointer }
-    button:active{ transform:translateY(1px) }
-    .hint{ font-size:0.85rem; color:#64748b; margin-top:0.6rem }
-    /* special appearance when count reaches 13 */
-    .unlucky{ background: linear-gradient(135deg, rgba(217,83,79,0.08), rgba(217,83,79,0.02)); border:1px solid rgba(217,83,79,0.12) }
-  </style>
-</head>
-<body>
-  <div class="card" id="card">
-    <h1>The Counting Game</h1>
-    <p class="instructions">Click the button to count up. But beware what happens at 13...</p>
+    Contains minimal CSS and JavaScript. The page shows the current count,
+    a button labeled "Count Up", and instructions. When the button is clicked
+    the client sends a POST request to /count to increment the server-side
+    in-memory counter and updates the displayed number.
+  -->
+  <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Counting Game</title>
 
-    <!-- Display the current count. The server injects the starting value. -->
-    <div id="count" class="count">{{ count }}</div>
+    <style>
+      /* Minimal, clean styling */
+      :root{ --bg:#f7f9fc; --card:#ffffff; --accent:#2b7cff; --danger:#d9534f }
+      body{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); margin:0; padding:2rem; display:flex; align-items:center; justify-content:center; height:100vh }
+      .card{ background:var(--card); padding:2rem 2.5rem; border-radius:12px; box-shadow:0 6px 18px rgba(30,41,59,0.08); text-align:center; width:360px }
+      h1{ margin:0 0 0.5rem; font-size:1.4rem }
+      p.instructions{ color:#475569; margin:0 0 1rem }
+      .count{ font-size:3.2rem; font-weight:700; margin:1rem 0 }
+      button{ background:var(--accent); color:white; border:none; padding:0.6rem 1.1rem; font-size:1rem; border-radius:8px; cursor:pointer }
+      button:active{ transform:translateY(1px) }
+      .hint{ font-size:0.85rem; color:#64748b; margin-top:0.6rem }
+      /* special appearance when count reaches 13 */
+      .unlucky{ background: linear-gradient(135deg, rgba(217,83,79,0.08), rgba(217,83,79,0.02)); border:1px solid rgba(217,83,79,0.12) }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="card">
+      <h1>The Counting Game</h1>
+      <p class="instructions">Click the button to count up. But beware what happens at 13...</p>
 
-    <!-- The button that triggers counting. -->
-    <button id="btn">Count Up</button>
+      <!-- Display the current count. The server injects the starting value. -->
+      <div id="count" class="count">{{ count }}</div>
 
-    <div class="hint">Tip: The counter is stored in the server's memory for now.</div>
-  </div>
+      <!-- The button that triggers counting. -->
+      <button id="btn">Count Up</button>
 
-  <script>
-    // JavaScript to call the POST /count endpoint and update the displayed value.
-    // This keeps the UI responsive without reloading the page.
-    const btn = document.getElementById('btn');
-    const countEl = document.getElementById('count');
-    const card = document.getElementById('card');
+      <div class="hint">Tip: The counter is stored in the server's memory for now.</div>
+    </div>
 
-    btn.addEventListener('click', async () => {
-      try {
-        // Send a POST request to the server to increment the counter.
-        const res = await fetch('/count', { method: 'POST' });
-        if (!res.ok) throw new Error('Network response was not ok');
-        const data = await res.json();
+    <script>
+      // JavaScript to call the POST /count endpoint and update the displayed value.
+      // This keeps the UI responsive without reloading the page.
+      const btn = document.getElementById('btn');
+      const countEl = document.getElementById('count');
+      const card = document.getElementById('card');
 
-        // Update the displayed count with the new value from the server.
-        countEl.textContent = data.count;
+      btn.addEventListener('click', async () => {
+        try {
+          // Send a POST request to the server to increment the counter.
+          const res = await fetch('/count', { method: 'POST' });
+          if (!res.ok) throw new Error('Network response was not ok');
+          const data = await res.json();
 
-        // A little visual effect for 13 to match the instructions.
-        if (data.count === 13) {
-          // add a CSS class that lightly changes the card appearance
-          card.classList.add('unlucky');
-          // also show a friendly alert so beginners notice it
-          setTimeout(() => alert('Uh oh — 13! Be careful...'), 50);
-        } else {
-          // remove the effect if we move away from 13
-          card.classList.remove('unlucky');
+          // Update the displayed count with the new value from the server.
+          countEl.textContent = data.count;
+
+          // When count reaches 13, show an in-page modal instead of an alert.
+          if (data.count === 13) {
+            // add a CSS class that lightly changes the card appearance
+            card.classList.add('unlucky');
+            // reveal the friendly modal element (hidden by default)
+            showUnluckyModal();
+          } else {
+            // remove the effect if we move away from 13
+            card.classList.remove('unlucky');
+          }
+        } catch (err) {
+          // For beginners: log the error to the console if the request fails.
+          console.error('Error incrementing count:', err);
+          alert('Could not increment the counter. See console for details.');
         }
-      } catch (err) {
-        // For beginners: log the error to the console if the request fails.
-        console.error('Error incrementing count:', err);
-        alert('Could not increment the counter. See console for details.');
-      }
-    });
-  </script>
-</body>
-</html>
+      });
+
+      // Modal helper is defined below and exposes `showUnluckyModal` on window.
+    </script>
+
+    <!-- In-page modal (hidden by default). It uses JS to post to /reset when dismissed. -->
+    <div id="unlucky-modal" style="display:none">
+      <div class="modal-overlay" id="modal-overlay"></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">Lucky 13!</h2>
+        <p>You've hit 13 — time for a playful reset. Press the big fun button to start over.</p>
+        <button id="reset-btn" class="fun">BOUNCE BACK ✨</button>
+      </div>
+    </div>
+
+    <style>
+      /* Modal styling (kept small and self-contained) */
+      .modal-overlay{ position:fixed; inset:0; background:rgba(2,6,23,0.45); backdrop-filter:blur(2px); z-index:30 }
+      .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:white; padding:1.6rem; border-radius:12px; width:320px; text-align:center; box-shadow:0 10px 30px rgba(2,6,23,0.2); z-index:31 }
+      .modal h2{ margin:0 0 0.4rem; font-size:1.2rem }
+      .modal p{ margin:0 0 1rem; color:#475569 }
+      .modal .fun{ background:linear-gradient(90deg,#ff7ae5,#7a5cff); color:white; border:none; padding:0.6rem 1rem; border-radius:10px; font-weight:700; cursor:pointer }
+      .modal .fun:active{ transform:translateY(1px) }
+    </style>
+
+    <script>
+      // Modal creation and behavior: we attach handlers to the DOM elements
+      // defined above. The reset button posts to /reset and updates the UI.
+      (function(){
+        const modalRoot = document.getElementById('unlucky-modal');
+        const overlay = document.getElementById('modal-overlay');
+        const resetBtn = document.getElementById('reset-btn');
+
+        function showUnluckyModal(){
+          modalRoot.style.display = 'block';
+          resetBtn.focus();
+        }
+
+        function hideUnluckyModal(){
+          modalRoot.style.display = 'none';
+        }
+
+        // When the fun button is clicked, POST to /reset to set counter to 0,
+        // update the displayed number and hide the modal.
+        resetBtn.addEventListener('click', async () => {
+          try {
+            const res = await fetch('/reset', { method: 'POST' });
+            if (!res.ok) throw new Error('Network response was not ok');
+            const data = await res.json();
+            countEl.textContent = data.count;
+            card.classList.remove('unlucky');
+            hideUnluckyModal();
+          } catch (err) {
+            console.error('Failed to reset count:', err);
+            alert('Could not reset the counter. See console for details.');
+          }
+        });
+
+        // Clicking the overlay also dismisses the modal and triggers reset.
+        overlay.addEventListener('click', () => resetBtn.click());
+
+        // Expose the show function so the main click handler can call it.
+        window.showUnluckyModal = showUnluckyModal;
+      })();
+    </script>
+
+  </body>
+  </html>
