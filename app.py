@@ -67,6 +67,12 @@ def reset_count():
     return jsonify({'count': new_value})
 
 
+@app.route('/hello')
+def hello_world():
+    """A simple Hello World endpoint."""
+    return "Hello World!"
+
+
 if __name__ == '__main__':
     # Start the Flask development server on localhost:5000 so the user can
     # open http://localhost:5000 in their browser.
