@@ -4,26 +4,91 @@ Simple Flask app for "The Counting Game".
 Run with:
     python app.py
 
-This app keeps an in-memory counter (a Python variable) and exposes two endpoints:
+This app keeps a persistent counter in a SQLite database and exposes endpoints:
 - GET /      -> serve the single page UI with current count
 - POST /count -> increment the counter and return JSON with the new value
+- POST /reset -> reset the counter to zero
 
 This file is heavily commented for beginners.
 """
 from flask import Flask, render_template, jsonify
 from threading import Lock
+import sqlite3
+import os
 
 # Create the Flask application object
 app = Flask(__name__)
 
-# A global in-memory counter. This satisfies requirement #4 (in-memory for now).
-# In a production system you'd store this in a database.
-counter = {
-    "value": 0
-}
+# Database configuration
+DB_PATH = 'counting_game.db'
 
-# A lock to avoid race conditions if the dev server runs with threads.
-counter_lock = Lock()
+# A lock to avoid race conditions when accessing the database from multiple threads.
+db_lock = Lock()
+
+
+def init_db():
+    """Initialize the SQLite database and create the counter table if it doesn't exist.
+
+    The table has a single row with id=1 that stores the current counter value.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Create the counter table if it doesn't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS counter (
+            id INTEGER PRIMARY KEY,
+            value INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
+
+    # Insert the initial counter row if it doesn't exist
+    cursor.execute('SELECT COUNT(*) FROM counter WHERE id = 1')
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('INSERT INTO counter (id, value) VALUES (1, 0)')
+
+    conn.commit()
+    conn.close()
+
+
+def get_counter():
+    """Read the current counter value from the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT value FROM counter WHERE id = 1')
+    value = cursor.fetchone()[0]
+    conn.close()
+    return value
+
+
+def increment_counter():
+    """Increment the counter in the database and return the new value."""
+    with db_lock:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('UPDATE counter SET value = value + 1 WHERE id = 1')
+        cursor.execute('SELECT value FROM counter WHERE id = 1')
+        new_value = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return new_value
+
+
+def reset_counter():
+    """Reset the counter to zero in the database and return the new value."""
+    with db_lock:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('UPDATE counter SET value = 0 WHERE id = 1')
+        cursor.execute('SELECT value FROM counter WHERE id = 1')
+        new_value = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return new_value
+
+
+# Initialize the database when the app starts
+init_db()
 
 
 @app.route('/')
@@ -33,21 +98,19 @@ def index():
     We pass the current counter value to the template so the page can show it
     when first loaded.
     """
-    # Read the counter value (no lock needed for read in this simple app,
-    # but we could use the lock for consistency)
-    return render_template('index.html', count=counter['value'])
+    current_count = get_counter()
+    return render_template('index.html', count=current_count)
 
 
 @app.route('/count', methods=['POST'])
 def increment_count():
-    """Increment the in-memory counter and return the new value as JSON.
+    """Increment the database counter and return the new value as JSON.
 
-    This endpoint is called from client-side JavaScript. We use a lock to
-    prevent a race condition if multiple requests arrive at the same time.
+    This endpoint is called from client-side JavaScript. We use a lock in
+    increment_counter() to prevent race conditions if multiple requests
+    arrive at the same time.
     """
-    with counter_lock:
-        counter['value'] += 1
-        new_value = counter['value']
+    new_value = increment_counter()
 
     # Return the new value in JSON format. The client will use this to update
     # the displayed counter without a full page reload.
@@ -56,14 +119,12 @@ def increment_count():
 
 @app.route('/reset', methods=['POST'])
 def reset_count():
-    """Reset the in-memory counter to zero and return the new value.
+    """Reset the database counter to zero and return the new value.
 
     This endpoint is called when the user dismisses the '13' message in the
-    UI. We also use the lock here to prevent races with concurrent requests.
+    UI. We use the lock in reset_counter() to prevent races with concurrent requests.
     """
-    with counter_lock:
-        counter['value'] = 0
-        new_value = counter['value']
+    new_value = reset_counter()
     return jsonify({'count': new_value})
 
 

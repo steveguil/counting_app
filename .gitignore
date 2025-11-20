@@ -66,3 +66,6 @@ ENV/
 
 # Pyre type checker
 .pyre/
+
+# SQLite database
+counting_game.db
